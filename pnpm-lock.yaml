@@ -75,6 +75,9 @@ importers:
       globals:
         specifier: ^17.4.0
         version: 17.4.0
+      paneforge:
+        specifier: ^1.0.2
+        version: 1.0.2(svelte@5.55.3(@typescript-eslint/types@8.58.1))
       playwright:
         specifier: ^1.59.1
         version: 1.59.1
@@ -1492,6 +1495,11 @@ packages:
     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
     engines: {node: '>=10'}
 
+  paneforge@1.0.2:
+    resolution: {integrity: sha512-KzmIXQH1wCfwZ4RsMohD/IUtEjVhteR+c+ulb/CHYJHX8SuDXoJmChtsc/Xs5Wl8NHS4L5Q7cxL8MG40gSU1bA==}
+    peerDependencies:
+      svelte: ^5.29.0
+
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
     engines: {node: '>=8'}
@@ -1660,6 +1668,11 @@ packages:
     peerDependencies:
       svelte: ^5.7.0
 
+  runed@0.29.2:
+    resolution: {integrity: sha512-0cq6cA6sYGZwl/FvVqjx9YN+1xEBu9sDDyuWdDW1yWX7JF2wmvmVKfH+hVCZs+csW+P3ARH92MjI3H9QTagOQA==}
+    peerDependencies:
+      svelte: ^5.7.0
+
   runed@0.35.1:
     resolution: {integrity: sha512-2F4Q/FZzbeJTFdIS/PuOoPRSm92sA2LhzTnv6FXhCoENb3huf5+fDuNOg1LNvGOouy3u/225qxmuJvcV3IZK5Q==}
     peerDependencies:
@@ -1751,6 +1764,12 @@ packages:
     engines: {node: '>=18', pnpm: '>=8.7.0'}
     peerDependencies:
       svelte: ^5.0.0
+
+  svelte-toolbelt@0.9.3:
+    resolution: {integrity: sha512-HCSWxCtVmv+c6g1ACb8LTwHVbDqLKJvHpo6J8TaqwUme2hj9ATJCpjCPNISR1OCq2Q4U1KT41if9ON0isINQZw==}
+    engines: {node: '>=18', pnpm: '>=8.7.0'}
+    peerDependencies:
+      svelte: ^5.30.2
 
   svelte@5.55.3:
     resolution: {integrity: sha512-dS1N+i3bA1v+c4UDb750MlN5vCO82G6vxh8HeTsPsTdJ1BLsN1zxSyDlIdBBqUjqZ/BxEwM8UrFf98aaoVnZFQ==}
@@ -3171,6 +3190,12 @@ snapshots:
     dependencies:
       p-limit: 3.1.0
 
+  paneforge@1.0.2(svelte@5.55.3(@typescript-eslint/types@8.58.1)):
+    dependencies:
+      runed: 0.23.4(svelte@5.55.3(@typescript-eslint/types@8.58.1))
+      svelte: 5.55.3(@typescript-eslint/types@8.58.1)
+      svelte-toolbelt: 0.9.3(svelte@5.55.3(@typescript-eslint/types@8.58.1))
+
   path-exists@4.0.0: {}
 
   path-key@3.1.1: {}
@@ -3272,6 +3297,11 @@ snapshots:
       svelte: 5.55.3(@typescript-eslint/types@8.58.1)
 
   runed@0.25.0(svelte@5.55.3(@typescript-eslint/types@8.58.1)):
+    dependencies:
+      esm-env: 1.2.2
+      svelte: 5.55.3(@typescript-eslint/types@8.58.1)
+
+  runed@0.29.2(svelte@5.55.3(@typescript-eslint/types@8.58.1)):
     dependencies:
       esm-env: 1.2.2
       svelte: 5.55.3(@typescript-eslint/types@8.58.1)
@@ -3395,6 +3425,13 @@ snapshots:
     dependencies:
       clsx: 2.1.1
       runed: 0.23.4(svelte@5.55.3(@typescript-eslint/types@8.58.1))
+      style-to-object: 1.0.14
+      svelte: 5.55.3(@typescript-eslint/types@8.58.1)
+
+  svelte-toolbelt@0.9.3(svelte@5.55.3(@typescript-eslint/types@8.58.1)):
+    dependencies:
+      clsx: 2.1.1
+      runed: 0.29.2(svelte@5.55.3(@typescript-eslint/types@8.58.1))
       style-to-object: 1.0.14
       svelte: 5.55.3(@typescript-eslint/types@8.58.1)
 
