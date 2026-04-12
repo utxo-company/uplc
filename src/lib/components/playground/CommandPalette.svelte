@@ -10,11 +10,10 @@
 
   interface Props {
     ctx: CommandContext;
+    open?: boolean;
   }
 
-  let { ctx }: Props = $props();
-
-  let open = $state(false);
+  let { ctx, open = $bindable(false) }: Props = $props();
 
   function handleKey(event: KeyboardEvent) {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {

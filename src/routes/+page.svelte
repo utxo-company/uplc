@@ -8,6 +8,7 @@
   import { runProgram, type RunResult } from "$lib/components/playground/run";
   import type { CommandContext } from "$lib/components/playground/commands";
   import { Button } from "$lib/components/ui/button";
+  import { Kbd } from "$lib/components/ui/kbd";
   import * as Resizable from "$lib/components/ui/resizable";
   import ThemeToggle from "$lib/components/theme-toggle.svelte";
   import { Play } from "@lucide/svelte";
@@ -25,6 +26,7 @@
   let datumDecoderOpen = $state(false);
   let applyArgOpen = $state(false);
   let exportOpen = $state(false);
+  let commandPaletteOpen = $state(false);
 
   function run() {
     result = runProgram(sourceState.current);
@@ -52,6 +54,14 @@
       </span>
     </div>
     <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={() => (commandPaletteOpen = true)}
+      >
+        Commands
+        <Kbd>⌘K</Kbd>
+      </Button>
       <Button size="sm" onclick={run}>
         <Play />
         Run
@@ -60,7 +70,7 @@
     </div>
   </header>
 
-  <CommandPalette {ctx} />
+  <CommandPalette {ctx} bind:open={commandPaletteOpen} />
   <CborDatumDecoder bind:open={datumDecoderOpen} />
   <ApplyArgDialog
     bind:open={applyArgOpen}
