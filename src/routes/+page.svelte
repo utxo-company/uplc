@@ -3,6 +3,7 @@
   import ResultPanel from "$lib/components/playground/ResultPanel.svelte";
   import CommandPalette from "$lib/components/playground/CommandPalette.svelte";
   import { runProgram, type RunResult } from "$lib/components/playground/run";
+  import type { CommandContext } from "$lib/components/playground/commands";
   import { Button } from "$lib/components/ui/button";
   import * as Resizable from "$lib/components/ui/resizable";
   import ThemeToggle from "$lib/components/theme-toggle.svelte";
@@ -18,6 +19,12 @@
   function run() {
     result = runProgram(source);
   }
+
+  const ctx: CommandContext = {
+    getSource: () => source,
+    setSource: (next) => (source = next),
+    runProgram: run,
+  };
 </script>
 
 <div class="flex h-screen flex-col">
@@ -39,7 +46,7 @@
     </div>
   </header>
 
-  <CommandPalette onRun={run} />
+  <CommandPalette {ctx} />
 
   <main class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal">

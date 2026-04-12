@@ -230,64 +230,157 @@ export function decodeFlatDeBruijn(buffer: Uint8Array): Program<DeBruijn> {
   return { version: { major, minor, patch }, term };
 }
 
-function decodeTerm(d: FlatDecoder): Term<DeBruijn> {
-  const tag = d.bits8(4);
-  switch (tag) {
-    case 0: {
-      const index = d.word();
-      return { tag: "var", name: { index } };
-    }
-    case 1: {
-      const body = decodeTerm(d);
-      return { tag: "delay", term: body };
-    }
-    case 2: {
-      const body = decodeTerm(d);
-      return { tag: "lambda", parameter: { index: 0 }, body };
-    }
-    case 3: {
-      const func = decodeTerm(d);
-      const arg = decodeTerm(d);
-      return { tag: "apply", function: func, argument: arg };
-    }
-    case 4: {
-      const con = decodeConstant(d);
-      return { tag: "constant", value: con };
-    }
-    case 5: {
-      const body = decodeTerm(d);
-      return { tag: "force", term: body };
-    }
-    case 6:
-      return { tag: "error" };
-    case 7: {
-      const fnTag = d.bits8(7);
-      const name = BUILTIN_TAG_TO_NAME[fnTag];
-      if (name === undefined)
-        throw new Error(`flat: invalid builtin tag ${fnTag}`);
-      return { tag: "builtin", function: name };
-    }
-    case 8: {
-      const index = d.word();
-      const fields = decodeBitPrefixedTermList(d);
-      return { tag: "constr", index, fields };
-    }
-    case 9: {
-      const constr = decodeTerm(d);
-      const branches = decodeBitPrefixedTermList(d);
-      return { tag: "case", constr, branches };
-    }
-    default:
-      throw new Error(`flat: invalid term tag ${tag}`);
-  }
-}
+// Iterative term decoder: realistic Plutus scripts nest thousands of terms
+// deep and blow the JS call stack on a naive recursive descent. We use an
+// explicit work stack where `visit` frames read one term-tag from the bit
+// stream and queue child visits + a build frame; build frames assemble the
+// child results bottom-up. Constant decoding stays recursive because constant
+// types are bounded-depth.
+type DecodeFrame =
+  | { kind: "visit" }
+  | { kind: "build-delay" }
+  | { kind: "build-lambda" }
+  | { kind: "build-apply" }
+  | { kind: "build-force" }
+  | { kind: "build-constr"; index: number; count: number }
+  | { kind: "continue-constr"; index: number; count: number }
+  | { kind: "build-case"; count: number }
+  | { kind: "continue-case"; count: number };
 
-function decodeBitPrefixedTermList(d: FlatDecoder): Term<DeBruijn>[] {
-  const items: Term<DeBruijn>[] = [];
-  while (d.bit()) {
-    items.push(decodeTerm(d));
+function decodeTerm(d: FlatDecoder): Term<DeBruijn> {
+  const results: Term<DeBruijn>[] = [];
+  const stack: DecodeFrame[] = [{ kind: "visit" }];
+
+  while (stack.length > 0) {
+    const frame = stack.pop()!;
+
+    switch (frame.kind) {
+      case "visit": {
+        const tag = d.bits8(4);
+        switch (tag) {
+          case 0: {
+            const index = d.word();
+            results.push({ tag: "var", name: { index } });
+            break;
+          }
+          case 1:
+            stack.push({ kind: "build-delay" });
+            stack.push({ kind: "visit" });
+            break;
+          case 2:
+            stack.push({ kind: "build-lambda" });
+            stack.push({ kind: "visit" });
+            break;
+          case 3:
+            stack.push({ kind: "build-apply" });
+            stack.push({ kind: "visit" }); // argument
+            stack.push({ kind: "visit" }); // function
+            break;
+          case 4: {
+            const con = decodeConstant(d);
+            results.push({ tag: "constant", value: con });
+            break;
+          }
+          case 5:
+            stack.push({ kind: "build-force" });
+            stack.push({ kind: "visit" });
+            break;
+          case 6:
+            results.push({ tag: "error" });
+            break;
+          case 7: {
+            const fnTag = d.bits8(7);
+            const name = BUILTIN_TAG_TO_NAME[fnTag];
+            if (name === undefined)
+              throw new Error(`flat: invalid builtin tag ${fnTag}`);
+            results.push({ tag: "builtin", function: name });
+            break;
+          }
+          case 8: {
+            const index = d.word();
+            stack.push({ kind: "continue-constr", index, count: 0 });
+            break;
+          }
+          case 9: {
+            stack.push({ kind: "continue-case", count: 0 });
+            stack.push({ kind: "visit" }); // constr scrutinee
+            break;
+          }
+          default:
+            throw new Error(`flat: invalid term tag ${tag}`);
+        }
+        break;
+      }
+      case "build-delay": {
+        const inner = results.pop()!;
+        results.push({ tag: "delay", term: inner });
+        break;
+      }
+      case "build-lambda": {
+        const inner = results.pop()!;
+        results.push({
+          tag: "lambda",
+          parameter: { index: 0 },
+          body: inner,
+        });
+        break;
+      }
+      case "build-apply": {
+        const argument = results.pop()!;
+        const fn = results.pop()!;
+        results.push({ tag: "apply", function: fn, argument });
+        break;
+      }
+      case "build-force": {
+        const inner = results.pop()!;
+        results.push({ tag: "force", term: inner });
+        break;
+      }
+      case "continue-constr": {
+        if (d.bit()) {
+          stack.push({
+            kind: "continue-constr",
+            index: frame.index,
+            count: frame.count + 1,
+          });
+          stack.push({ kind: "visit" });
+        } else {
+          stack.push({
+            kind: "build-constr",
+            index: frame.index,
+            count: frame.count,
+          });
+        }
+        break;
+      }
+      case "build-constr": {
+        const fields: Term<DeBruijn>[] = [];
+        for (let i = 0; i < frame.count; i++) fields.push(results.pop()!);
+        fields.reverse();
+        results.push({ tag: "constr", index: frame.index, fields });
+        break;
+      }
+      case "continue-case": {
+        if (d.bit()) {
+          stack.push({ kind: "continue-case", count: frame.count + 1 });
+          stack.push({ kind: "visit" });
+        } else {
+          stack.push({ kind: "build-case", count: frame.count });
+        }
+        break;
+      }
+      case "build-case": {
+        const branches: Term<DeBruijn>[] = [];
+        for (let i = 0; i < frame.count; i++) branches.push(results.pop()!);
+        branches.reverse();
+        const constr = results.pop()!;
+        results.push({ tag: "case", constr, branches });
+        break;
+      }
+    }
   }
-  return items;
+
+  return results.pop()!;
 }
 
 // --- Constant decoding ---
@@ -519,66 +612,81 @@ export function encodeFlatDeBruijn(program: Program<DeBruijn>): Uint8Array {
   return e.toBytes();
 }
 
-function encodeTermFlat(e: FlatEncoder, term: Term<DeBruijn>): void {
-  switch (term.tag) {
-    case "var":
-      e.bits(4, 0);
-      e.word(term.name.index);
-      break;
-    case "delay":
-      e.bits(4, 1);
-      encodeTermFlat(e, term.term);
-      break;
-    case "lambda":
-      e.bits(4, 2);
-      encodeTermFlat(e, term.body);
-      break;
-    case "apply":
-      e.bits(4, 3);
-      encodeTermFlat(e, term.function);
-      encodeTermFlat(e, term.argument);
-      break;
-    case "constant":
-      e.bits(4, 4);
-      encodeConstantFlat(e, term.value);
-      break;
-    case "force":
-      e.bits(4, 5);
-      encodeTermFlat(e, term.term);
-      break;
-    case "error":
-      e.bits(4, 6);
-      break;
-    case "builtin": {
-      e.bits(4, 7);
-      const fnTag = BUILTIN_NAME_TO_TAG[term.function];
-      if (fnTag === undefined)
-        throw new Error(`flat: unknown builtin ${term.function}`);
-      e.bits(7, fnTag);
-      break;
-    }
-    case "constr":
-      e.bits(4, 8);
-      e.word(term.index);
-      encodeBitPrefixedTermListFlat(e, term.fields);
-      break;
-    case "case":
-      e.bits(4, 9);
-      encodeTermFlat(e, term.constr);
-      encodeBitPrefixedTermListFlat(e, term.branches);
-      break;
-  }
-}
+// Iterative encoder: mirrors the decoder's explicit-stack walk so deeply
+// nested Plutus scripts don't blow the JS call stack on export.
+type EncodeFrame =
+  | { kind: "term"; term: Term<DeBruijn> }
+  | { kind: "emit-bit"; value: boolean };
 
-function encodeBitPrefixedTermListFlat(
-  e: FlatEncoder,
-  terms: ReadonlyArray<Term<DeBruijn>>,
-): void {
-  for (const term of terms) {
-    e.bit(true);
-    encodeTermFlat(e, term);
+function encodeTermFlat(e: FlatEncoder, root: Term<DeBruijn>): void {
+  const stack: EncodeFrame[] = [{ kind: "term", term: root }];
+
+  while (stack.length > 0) {
+    const frame = stack.pop()!;
+
+    if (frame.kind === "emit-bit") {
+      e.bit(frame.value);
+      continue;
+    }
+
+    const term = frame.term;
+    switch (term.tag) {
+      case "var":
+        e.bits(4, 0);
+        e.word(term.name.index);
+        break;
+      case "delay":
+        e.bits(4, 1);
+        stack.push({ kind: "term", term: term.term });
+        break;
+      case "lambda":
+        e.bits(4, 2);
+        stack.push({ kind: "term", term: term.body });
+        break;
+      case "apply":
+        e.bits(4, 3);
+        stack.push({ kind: "term", term: term.argument });
+        stack.push({ kind: "term", term: term.function });
+        break;
+      case "constant":
+        e.bits(4, 4);
+        encodeConstantFlat(e, term.value);
+        break;
+      case "force":
+        e.bits(4, 5);
+        stack.push({ kind: "term", term: term.term });
+        break;
+      case "error":
+        e.bits(4, 6);
+        break;
+      case "builtin": {
+        e.bits(4, 7);
+        const fnTag = BUILTIN_NAME_TO_TAG[term.function];
+        if (fnTag === undefined)
+          throw new Error(`flat: unknown builtin ${term.function}`);
+        e.bits(7, fnTag);
+        break;
+      }
+      case "constr":
+        e.bits(4, 8);
+        e.word(term.index);
+        stack.push({ kind: "emit-bit", value: false });
+        for (let i = term.fields.length - 1; i >= 0; i--) {
+          stack.push({ kind: "term", term: term.fields[i]! });
+          stack.push({ kind: "emit-bit", value: true });
+        }
+        break;
+      case "case":
+        e.bits(4, 9);
+        stack.push({ kind: "emit-bit", value: false });
+        for (let i = term.branches.length - 1; i >= 0; i--) {
+          stack.push({ kind: "term", term: term.branches[i]! });
+          stack.push({ kind: "emit-bit", value: true });
+        }
+        stack.push({ kind: "term", term: term.constr });
+        break;
+    }
   }
-  e.bit(false);
 }
 
 // --- Constant encoding ---
