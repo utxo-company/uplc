@@ -78,6 +78,18 @@
     view = new EditorView({ state, parent: host });
   });
 
+  // Sync external value changes (e.g. import commands) into the CodeMirror
+  // doc. Skip when the doc already matches to avoid fighting user typing.
+  $effect(() => {
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current !== value) {
+      view.dispatch({
+        changes: { from: 0, to: current.length, insert: value },
+      });
+    }
+  });
+
   onDestroy(() => {
     view?.destroy();
   });

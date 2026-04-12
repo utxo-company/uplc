@@ -1,9 +1,10 @@
 import {
   CekMachine,
   I64_MAX,
+  deBruijnTermToName,
+  formatNamed,
   nameToDeBruijn,
   parse,
-  prettyPrint,
   unlimitedBudget,
 } from "$lib/plutus";
 
@@ -70,9 +71,10 @@ export function runProgram(source: string): RunResult {
   const cpu = clampI64(initialBudget.cpu - remaining.cpu);
   const mem = clampI64(initialBudget.mem - remaining.mem);
 
+  const namedTerm = deBruijnTermToName(resultTerm);
   return {
     ok: true,
-    term: prettyPrint(resultTerm),
+    term: formatNamed(namedTerm, { maxWidth: 80 }),
     cpu,
     mem,
   };

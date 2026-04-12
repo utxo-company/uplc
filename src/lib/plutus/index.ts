@@ -50,8 +50,18 @@ export {
 } from "./types";
 
 export { parse, ParseError } from "./parse";
-export { nameToDeBruijn, ConvertError } from "./convert";
+export {
+  nameToDeBruijn,
+  deBruijnToName,
+  deBruijnTermToName,
+  ConvertError,
+} from "./convert";
 export { CekMachine, EvaluationError } from "./cek";
-export { prettyPrint } from "./pretty";
+export {
+  prettyPrint,
+  prettyPrintNamed,
+  plutusDataToConstantText,
+} from "./pretty";
+export { formatNamed, type FormatOptions } from "./format";
 export { decodeFlatDeBruijn, encodeFlatDeBruijn } from "./flat";
 export { encodePlutusData, decodePlutusData } from "./cbor";

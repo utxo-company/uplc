@@ -2,6 +2,7 @@ import type {
   Constant,
   ConstantType,
   DeBruijn,
+  Name,
   PlutusData,
   Term,
 } from "./types";
@@ -33,6 +34,86 @@ export function prettyPrint(term: Term<DeBruijn>): string {
     case "error":
       return "(error)";
   }
+}
+
+// Iterative pretty printer for named terms. Uses an explicit work stack so
+// realistic Plutus scripts (thousands of levels deep) don't blow the JS call
+// stack.
+export function prettyPrintNamed(root: Term<Name>): string {
+  type Frame =
+    | { kind: "term"; term: Term<Name> }
+    | { kind: "str"; value: string };
+
+  const parts: string[] = [];
+  const stack: Frame[] = [{ kind: "term", term: root }];
+
+  while (stack.length > 0) {
+    const frame = stack.pop()!;
+
+    if (frame.kind === "str") {
+      parts.push(frame.value);
+      continue;
+    }
+
+    const t = frame.term;
+    switch (t.tag) {
+      case "var":
+        parts.push(t.name.text);
+        break;
+      case "lambda":
+        stack.push({ kind: "str", value: ")" });
+        stack.push({ kind: "term", term: t.body });
+        stack.push({ kind: "str", value: `(lam ${t.parameter.text} ` });
+        break;
+      case "apply":
+        stack.push({ kind: "str", value: "]" });
+        stack.push({ kind: "term", term: t.argument });
+        stack.push({ kind: "str", value: " " });
+        stack.push({ kind: "term", term: t.function });
+        stack.push({ kind: "str", value: "[" });
+        break;
+      case "delay":
+        stack.push({ kind: "str", value: ")" });
+        stack.push({ kind: "term", term: t.term });
+        stack.push({ kind: "str", value: "(delay " });
+        break;
+      case "force":
+        stack.push({ kind: "str", value: ")" });
+        stack.push({ kind: "term", term: t.term });
+        stack.push({ kind: "str", value: "(force " });
+        break;
+      case "constr": {
+        stack.push({ kind: "str", value: ")" });
+        for (let i = t.fields.length - 1; i >= 0; i--) {
+          stack.push({ kind: "term", term: t.fields[i]! });
+          stack.push({ kind: "str", value: " " });
+        }
+        stack.push({ kind: "str", value: `(constr ${t.index}` });
+        break;
+      }
+      case "case": {
+        stack.push({ kind: "str", value: ")" });
+        for (let i = t.branches.length - 1; i >= 0; i--) {
+          stack.push({ kind: "term", term: t.branches[i]! });
+          stack.push({ kind: "str", value: " " });
+        }
+        stack.push({ kind: "term", term: t.constr });
+        stack.push({ kind: "str", value: "(case " });
+        break;
+      }
+      case "constant":
+        parts.push(`(con ${printConstant(t.value)})`);
+        break;
+      case "builtin":
+        parts.push(`(builtin ${t.function})`);
+        break;
+      case "error":
+        parts.push("(error)");
+        break;
+    }
+  }
+
+  return parts.join("");
 }
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -179,7 +260,7 @@ function printConstantInner(constant: Constant): string {
   return printConstant(constant);
 }
 
-function printPlutusData(data: PlutusData): string {
+export function printPlutusData(data: PlutusData): string {
   switch (data.tag) {
     case "integer":
       return `I ${data.value}`;
@@ -202,4 +283,8 @@ function printPlutusData(data: PlutusData): string {
       return `Constr ${data.index} [${fields}]`;
     }
   }
+}
+
+export function plutusDataToConstantText(data: PlutusData): string {
+  return `(con data (${printPlutusData(data)}))`;
 }
