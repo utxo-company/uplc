@@ -8,9 +8,50 @@ import {
   type Program,
   type DeBruijn,
 } from "$lib/plutus";
-import { errorMessage, hexToBytes, unwrapCborScript } from "./_io";
+import {
+  bytesToHex,
+  errorMessage,
+  hexToBytes,
+  unwrapCborScript,
+  wrapCborScript,
+} from "./_io";
 
 export type ProgramFormat = "CBOR hex" | "hex" | "flat";
+
+export type ExportFormat = "hex" | "flat" | "cbor-hex";
+
+export type EncodedProgram =
+  | { kind: "text"; text: string }
+  | { kind: "bytes"; bytes: Uint8Array };
+
+export const exportFormatExtension: Record<ExportFormat, string> = {
+  hex: ".hex",
+  flat: ".flat",
+  "cbor-hex": ".cbor.hex",
+};
+
+export const exportFormatLabel: Record<ExportFormat, string> = {
+  hex: "Hex",
+  flat: "Flat",
+  "cbor-hex": "CBOR Hex",
+};
+
+// Encode the current source as the requested binary script format. Throws if
+// the source does not parse / convert.
+export function encodeProgramAs(
+  source: string,
+  format: ExportFormat,
+): EncodedProgram {
+  const flat = sourceToFlat(source);
+  switch (format) {
+    case "hex":
+      return { kind: "text", text: bytesToHex(flat) };
+    case "flat":
+      return { kind: "bytes", bytes: flat };
+    case "cbor-hex":
+      return { kind: "text", text: bytesToHex(wrapCborScript(flat)) };
+  }
+}
 
 // Wrap a decoded DeBruijn program as textual UPLC source the editor can hold.
 // `deBruijnToName` assigns every binder a globally fresh name so the output

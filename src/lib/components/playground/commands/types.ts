@@ -8,6 +8,7 @@ export interface CommandContext {
   runProgram: () => void;
   openCborDatumDecoder: () => void;
   openApplyArgDialog: () => void;
+  openExportDialog: () => void;
 }
 
 export interface Command {

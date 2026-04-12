@@ -17,8 +17,7 @@
   let open = $state(false);
 
   function handleKey(event: KeyboardEvent) {
-    // Cmd/Ctrl+P — suppress the browser Print dialog and toggle the palette.
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "p") {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       open = !open;
     }
