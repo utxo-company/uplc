@@ -64,7 +64,8 @@ function runTest(tc: TestCase): void {
     program = parse(source);
   } catch (err) {
     if (expectParseError) {
-      return; // PASS — expected parse error
+      expect(err).toBeDefined(); // PASS — expected parse error
+      return;
     }
     throw err;
   }
@@ -84,7 +85,8 @@ function runTest(tc: TestCase): void {
       throw err;
     }
     if (expectEvalFailure) {
-      return; // PASS — conversion failure counts as eval failure
+      expect(err).toBeDefined(); // PASS — conversion failure counts as eval failure
+      return;
     }
     throw err;
   }
@@ -97,7 +99,8 @@ function runTest(tc: TestCase): void {
     result = machine.run(dProgram.term);
   } catch (err) {
     if (expectEvalFailure) {
-      return; // PASS — expected evaluation failure
+      expect(err).toBeDefined(); // PASS — expected evaluation failure
+      return;
     }
     throw err;
   }
