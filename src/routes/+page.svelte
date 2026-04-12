@@ -2,28 +2,35 @@
   import Editor from "$lib/components/playground/Editor.svelte";
   import ResultPanel from "$lib/components/playground/ResultPanel.svelte";
   import CommandPalette from "$lib/components/playground/CommandPalette.svelte";
+  import CborDatumDecoder from "$lib/components/playground/CborDatumDecoder.svelte";
   import { runProgram, type RunResult } from "$lib/components/playground/run";
   import type { CommandContext } from "$lib/components/playground/commands";
   import { Button } from "$lib/components/ui/button";
   import * as Resizable from "$lib/components/ui/resizable";
   import ThemeToggle from "$lib/components/theme-toggle.svelte";
   import { Play } from "@lucide/svelte";
+  import { PersistedState } from "runed";
 
   const DEFAULT_PROGRAM = `(program 1.0.0
   [(lam x x) (con integer 42)])
 `;
 
-  let source = $state(DEFAULT_PROGRAM);
+  const sourceState = new PersistedState<string>(
+    "playground:source",
+    DEFAULT_PROGRAM,
+  );
   let result = $state<RunResult | null>(null);
+  let datumDecoderOpen = $state(false);
 
   function run() {
-    result = runProgram(source);
+    result = runProgram(sourceState.current);
   }
 
   const ctx: CommandContext = {
-    getSource: () => source,
-    setSource: (next) => (source = next),
+    getSource: () => sourceState.current,
+    setSource: (next) => (sourceState.current = next),
     runProgram: run,
+    openCborDatumDecoder: () => (datumDecoderOpen = true),
   };
 </script>
 
@@ -47,6 +54,7 @@
   </header>
 
   <CommandPalette {ctx} />
+  <CborDatumDecoder bind:open={datumDecoderOpen} />
 
   <main class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal">
@@ -58,7 +66,10 @@
             Source
           </div>
           <div class="min-h-0 flex-1">
-            <Editor value={source} onChange={(next) => (source = next)} />
+            <Editor
+              value={sourceState.current}
+              onChange={(next) => (sourceState.current = next)}
+            />
           </div>
         </div>
       </Resizable.Pane>

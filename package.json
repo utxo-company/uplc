@@ -65,6 +65,8 @@
     "@codemirror/view": "^6.41.0",
     "@lezer/highlight": "^1.2.3",
     "codemirror": "^6.0.2",
-    "mode-watcher": "^1.1.0"
-  }
+    "mode-watcher": "^1.1.0",
+    "runed": "^0.37.1"
+  },
+  "packageManager": "pnpm@10.33.0"
 }

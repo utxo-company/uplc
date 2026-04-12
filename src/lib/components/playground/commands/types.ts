@@ -1,11 +1,12 @@
 import type { Component } from "svelte";
 
-export type CommandGroup = "Actions" | "Import" | "Export";
+export type CommandGroup = "Actions" | "Tools" | "Import" | "Export";
 
 export interface CommandContext {
   getSource: () => string;
   setSource: (next: string) => void;
   runProgram: () => void;
+  openCborDatumDecoder: () => void;
 }
 
 export interface Command {

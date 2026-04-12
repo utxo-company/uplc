@@ -146,10 +146,14 @@ type DenameFrame =
   | { kind: "build-case"; branchCount: number };
 
 export function deBruijnToName(program: Program<DeBruijn>): Program<Name> {
+  return { version: program.version, term: deBruijnTermToName(program.term) };
+}
+
+export function deBruijnTermToName(root: Term<DeBruijn>): Term<Name> {
   let counter = 0;
   const scope: Name[] = [];
   const results: Term<Name>[] = [];
-  const stack: DenameFrame[] = [{ kind: "visit", term: program.term }];
+  const stack: DenameFrame[] = [{ kind: "visit", term: root }];
 
   while (stack.length > 0) {
     const frame = stack.pop()!;
@@ -266,5 +270,5 @@ export function deBruijnToName(program: Program<DeBruijn>): Program<Name> {
     }
   }
 
-  return { version: program.version, term: results.pop()! };
+  return results.pop()!;
 }

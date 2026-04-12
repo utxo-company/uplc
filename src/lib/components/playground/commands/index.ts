@@ -1,5 +1,7 @@
 import type { Command, CommandGroup } from "./types";
 import { runCommand } from "./run";
+import { formatCommand } from "./format";
+import { decodeCborDatumCommand } from "./decode-cbor-datum";
 import { importCommand } from "./import";
 import { exportHexCommand } from "./export-hex";
 import { exportFlatCommand } from "./export-flat";
@@ -9,6 +11,8 @@ export type { Command, CommandContext, CommandGroup } from "./types";
 
 export const commands: Command[] = [
   runCommand,
+  formatCommand,
+  decodeCborDatumCommand,
   importCommand,
   exportHexCommand,
   exportFlatCommand,
@@ -17,6 +21,7 @@ export const commands: Command[] = [
 
 export const commandGroupOrder: CommandGroup[] = [
   "Actions",
+  "Tools",
   "Import",
   "Export",
 ];

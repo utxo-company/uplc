@@ -260,7 +260,7 @@ function printConstantInner(constant: Constant): string {
   return printConstant(constant);
 }
 
-function printPlutusData(data: PlutusData): string {
+export function printPlutusData(data: PlutusData): string {
   switch (data.tag) {
     case "integer":
       return `I ${data.value}`;
@@ -283,4 +283,8 @@ function printPlutusData(data: PlutusData): string {
       return `Constr ${data.index} [${fields}]`;
     }
   }
+}
+
+export function plutusDataToConstantText(data: PlutusData): string {
+  return `(con data (${printPlutusData(data)}))`;
 }
