@@ -4,8 +4,6 @@
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
-@plugin "@tailwindcss/forms";
-@plugin "@tailwindcss/typography";
 
 :root {
   --background: oklch(1 0 0);
@@ -31,7 +29,7 @@
   --chart-3: oklch(0.596 0.145 163.225);
   --chart-4: oklch(0.508 0.118 165.612);
   --chart-5: oklch(0.432 0.095 166.913);
-  --radius: 0rem;
+  --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.596 0.145 163.225);

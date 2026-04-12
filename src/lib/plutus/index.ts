@@ -46,6 +46,7 @@ export {
   zeroBudget,
   typeOfConstant,
   constantTypeEquals,
+  I64_MAX,
 } from "./types";
 
 export { parse, ParseError } from "./parse";

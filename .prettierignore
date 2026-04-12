@@ -9,3 +9,4 @@ bun.lockb
 /static/
 
 src/lib/plutus
+worker-configuration.d.ts

@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import { describe, bench } from "vitest";
-import { decodeFlatDeBruijn } from "../src/flat";
-import { CekMachine } from "../src/cek";
+import { decodeFlatDeBruijn } from "../flat";
+import { CekMachine } from "../cek";
 
 const benchDir = join(__dirname, "plutus_use_cases");
 const files = readdirSync(benchDir)
