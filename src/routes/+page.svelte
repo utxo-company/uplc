@@ -45,6 +45,7 @@
     class="flex h-12 flex-none items-center justify-between border-b px-4"
   >
     <div class="flex items-center gap-2">
+      <img src="/logo.svg" alt="UPLC Playground" class="h-8 w-8" />
       <span class="text-sm font-semibold tracking-tight">UPLC Playground</span>
       <span class="text-xs text-muted-foreground">
         Untyped Plutus Core — parse, evaluate, inspect
