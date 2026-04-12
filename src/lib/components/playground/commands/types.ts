@@ -7,6 +7,7 @@ export interface CommandContext {
   setSource: (next: string) => void;
   runProgram: () => void;
   openCborDatumDecoder: () => void;
+  openApplyArgDialog: () => void;
 }
 
 export interface Command {

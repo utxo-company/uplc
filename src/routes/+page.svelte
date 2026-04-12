@@ -3,6 +3,7 @@
   import ResultPanel from "$lib/components/playground/ResultPanel.svelte";
   import CommandPalette from "$lib/components/playground/CommandPalette.svelte";
   import CborDatumDecoder from "$lib/components/playground/CborDatumDecoder.svelte";
+  import ApplyArgDialog from "$lib/components/playground/ApplyArgDialog.svelte";
   import { runProgram, type RunResult } from "$lib/components/playground/run";
   import type { CommandContext } from "$lib/components/playground/commands";
   import { Button } from "$lib/components/ui/button";
@@ -21,6 +22,7 @@
   );
   let result = $state<RunResult | null>(null);
   let datumDecoderOpen = $state(false);
+  let applyArgOpen = $state(false);
 
   function run() {
     result = runProgram(sourceState.current);
@@ -31,6 +33,7 @@
     setSource: (next) => (sourceState.current = next),
     runProgram: run,
     openCborDatumDecoder: () => (datumDecoderOpen = true),
+    openApplyArgDialog: () => (applyArgOpen = true),
   };
 </script>
 
@@ -55,6 +58,11 @@
 
   <CommandPalette {ctx} />
   <CborDatumDecoder bind:open={datumDecoderOpen} />
+  <ApplyArgDialog
+    bind:open={applyArgOpen}
+    getSource={() => sourceState.current}
+    setSource={(next) => (sourceState.current = next)}
+  />
 
   <main class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal">

@@ -8,6 +8,9 @@ import {
   type Program,
   type DeBruijn,
 } from "$lib/plutus";
+import { errorMessage, hexToBytes, unwrapCborScript } from "./_io";
+
+export type ProgramFormat = "CBOR hex" | "hex" | "flat";
 
 // Wrap a decoded DeBruijn program as textual UPLC source the editor can hold.
 // `deBruijnToName` assigns every binder a globally fresh name so the output
@@ -40,4 +43,32 @@ export function formatSource(source: string): string {
   const { major, minor, patch } = parsed.version;
   const body = formatNamed(parsed.term, { maxWidth: 80, baseIndent: 2 });
   return `(program ${major}.${minor}.${patch}\n  ${body})\n`;
+}
+
+// Try every supported binary script encoding (CBOR-wrapped hex, plain hex,
+// raw flat) and return the first that decodes successfully along with the
+// detected format. Throws with a per-format error breakdown if all fail.
+export function autoDecodeProgram(picked: {
+  name: string;
+  bytes: Uint8Array;
+}): { program: Program<DeBruijn>; format: ProgramFormat } {
+  const text = new TextDecoder("utf-8", { fatal: false }).decode(picked.bytes);
+
+  const attempts: { format: ProgramFormat; getBytes: () => Uint8Array }[] = [
+    { format: "CBOR hex", getBytes: () => unwrapCborScript(hexToBytes(text)) },
+    { format: "hex", getBytes: () => hexToBytes(text) },
+    { format: "flat", getBytes: () => picked.bytes },
+  ];
+
+  const errors: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      const bytes = attempt.getBytes();
+      const program = decodeFlatDeBruijn(bytes);
+      return { program, format: attempt.format };
+    } catch (err) {
+      errors.push(`${attempt.format}: ${errorMessage(err)}`);
+    }
+  }
+  throw new Error(`Could not detect format. Tried — ${errors.join("; ")}`);
 }
