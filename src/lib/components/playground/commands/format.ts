@@ -1,7 +1,7 @@
 import Sparkles from "@lucide/svelte/icons/sparkles";
 import type { Command } from "./types";
 import { errorMessage, notifyError, notifySuccess } from "./_io";
-import { formatSource } from "./_program";
+import { formatSource, formatNashSource } from "./_program";
 
 export const formatCommand: Command = {
   id: "format",
@@ -11,7 +11,9 @@ export const formatCommand: Command = {
   keywords: ["pretty", "prettier", "indent", "reformat"],
   run: (ctx) => {
     try {
-      const formatted = formatSource(ctx.getSource());
+      const formatter =
+        ctx.getActiveTab() === "nash" ? formatNashSource : formatSource;
+      const formatted = formatter(ctx.getSource());
       ctx.setSource(formatted);
       notifySuccess("Formatted source");
     } catch (err) {

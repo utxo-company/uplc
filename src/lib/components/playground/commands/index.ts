@@ -6,7 +6,7 @@ import { decodeCborDatumCommand } from "./decode-cbor-datum";
 import { importCommand } from "./import";
 import { exportCommand } from "./export";
 
-export type { Command, CommandContext, CommandGroup } from "./types";
+export type { ActiveTab, Command, CommandContext, CommandGroup } from "./types";
 
 export const commands: Command[] = [
   runCommand,

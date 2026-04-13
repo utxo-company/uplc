@@ -6,7 +6,10 @@ import {
   nameToDeBruijn,
   parse,
   unlimitedBudget,
+  type Program,
+  type Name,
 } from "$lib/plutus";
+import { parseNash, nashToUplc, type NashProgram } from "$lib/nash";
 
 export type RunStage = "parse" | "convert" | "evaluate";
 
@@ -28,19 +31,8 @@ function errorMessage(err: unknown): string {
   return String(err);
 }
 
-export function runProgram(source: string): RunResult {
-  let program;
-  try {
-    program = parse(source);
-  } catch (err) {
-    return {
-      ok: false,
-      stage: "parse",
-      errorName: errorName(err),
-      message: errorMessage(err),
-    };
-  }
-
+// Shared pipeline: nameToDeBruijn → CekMachine.run → format
+function runNamedProgram(program: Program<Name>): RunResult {
   let dProgram;
   try {
     dProgram = nameToDeBruijn(program);
@@ -78,4 +70,42 @@ export function runProgram(source: string): RunResult {
     cpu,
     mem,
   };
+}
+
+export function runProgram(source: string): RunResult {
+  let program;
+  try {
+    program = parse(source);
+  } catch (err) {
+    return {
+      ok: false,
+      stage: "parse",
+      errorName: errorName(err),
+      message: errorMessage(err),
+    };
+  }
+
+  return runNamedProgram(program);
+}
+
+export function runNashProgram(source: string): RunResult {
+  let nashProgram: NashProgram<Name>;
+  try {
+    nashProgram = parseNash(source);
+  } catch (err) {
+    return {
+      ok: false,
+      stage: "parse",
+      errorName: errorName(err),
+      message: errorMessage(err),
+    };
+  }
+
+  const uplcTerm = nashToUplc(nashProgram.term);
+  const program: Program<Name> = {
+    version: nashProgram.version,
+    term: uplcTerm,
+  };
+
+  return runNamedProgram(program);
 }

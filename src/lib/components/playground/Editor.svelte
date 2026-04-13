@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { EditorState } from "@codemirror/state";
+  import { EditorState, type Extension } from "@codemirror/state";
   import { EditorView } from "@codemirror/view";
   import { basicSetup } from "codemirror";
   import { uplc } from "./uplc-language";
@@ -8,9 +8,10 @@
   interface Props {
     value: string;
     onChange: (next: string) => void;
+    language?: () => Extension;
   }
 
-  let { value, onChange }: Props = $props();
+  let { value, onChange, language }: Props = $props();
 
   let host: HTMLDivElement;
   let view: EditorView | undefined;
@@ -65,7 +66,7 @@
       doc: value,
       extensions: [
         basicSetup,
-        uplc(),
+        language ? language() : uplc(),
         theme,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {

@@ -8,6 +8,7 @@ import {
   type Program,
   type DeBruijn,
 } from "$lib/plutus";
+import { parseNash, formatNash } from "$lib/nash";
 import {
   bytesToHex,
   errorMessage,
@@ -83,6 +84,14 @@ export function formatSource(source: string): string {
   const parsed = parse(source);
   const { major, minor, patch } = parsed.version;
   const body = formatNamed(parsed.term, { maxWidth: 80, baseIndent: 2 });
+  return `(program ${major}.${minor}.${patch}\n  ${body})\n`;
+}
+
+// Re-format Nash source. Parses as Nash, then emits via the Nash formatter.
+export function formatNashSource(source: string): string {
+  const parsed = parseNash(source);
+  const { major, minor, patch } = parsed.version;
+  const body = formatNash(parsed.term, { maxWidth: 80, baseIndent: 2 });
   return `(program ${major}.${minor}.${patch}\n  ${body})\n`;
 }
 
