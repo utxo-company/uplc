@@ -3,121 +3,17 @@
 import { bls12_381 } from "@noble/curves/bls12-381";
 import { Lexer, ParseError } from "./lexer";
 import type { Token, TokenType } from "./lexer";
+import { isDefaultFunction, defaultFunctionForceCount } from "../plutus/types";
 import type {
   Name,
   Version,
   Constant,
   ConstantType,
-  DefaultFunction,
   PlutusData,
 } from "../plutus/types";
 import type { NashProgram, NashTerm, LetBinding } from "./types";
 
 export { ParseError };
-
-const BUILTIN_FUNCTIONS = new Set<string>([
-  "addInteger",
-  "subtractInteger",
-  "multiplyInteger",
-  "divideInteger",
-  "quotientInteger",
-  "remainderInteger",
-  "modInteger",
-  "equalsInteger",
-  "lessThanInteger",
-  "lessThanEqualsInteger",
-  "appendByteString",
-  "consByteString",
-  "sliceByteString",
-  "lengthOfByteString",
-  "indexByteString",
-  "equalsByteString",
-  "lessThanByteString",
-  "lessThanEqualsByteString",
-  "sha2_256",
-  "sha3_256",
-  "blake2b_256",
-  "keccak_256",
-  "blake2b_224",
-  "ripemd_160",
-  "verifyEd25519Signature",
-  "verifyEcdsaSecp256k1Signature",
-  "verifySchnorrSecp256k1Signature",
-  "appendString",
-  "equalsString",
-  "encodeUtf8",
-  "decodeUtf8",
-  "ifThenElse",
-  "chooseUnit",
-  "trace",
-  "fstPair",
-  "sndPair",
-  "chooseList",
-  "mkCons",
-  "headList",
-  "tailList",
-  "nullList",
-  "chooseData",
-  "constrData",
-  "mapData",
-  "listData",
-  "iData",
-  "bData",
-  "unConstrData",
-  "unMapData",
-  "unListData",
-  "unIData",
-  "unBData",
-  "equalsData",
-  "mkPairData",
-  "mkNilData",
-  "mkNilPairData",
-  "serialiseData",
-  "bls12_381_G1_add",
-  "bls12_381_G1_neg",
-  "bls12_381_G1_scalarMul",
-  "bls12_381_G1_equal",
-  "bls12_381_G1_compress",
-  "bls12_381_G1_uncompress",
-  "bls12_381_G1_hashToGroup",
-  "bls12_381_G2_add",
-  "bls12_381_G2_neg",
-  "bls12_381_G2_scalarMul",
-  "bls12_381_G2_equal",
-  "bls12_381_G2_compress",
-  "bls12_381_G2_uncompress",
-  "bls12_381_G2_hashToGroup",
-  "bls12_381_millerLoop",
-  "bls12_381_mulMlResult",
-  "bls12_381_finalVerify",
-  "integerToByteString",
-  "byteStringToInteger",
-  "andByteString",
-  "orByteString",
-  "xorByteString",
-  "complementByteString",
-  "readBit",
-  "writeBits",
-  "replicateByte",
-  "shiftByteString",
-  "rotateByteString",
-  "countSetBits",
-  "findFirstSetBit",
-  "expModInteger",
-  "dropList",
-  "lengthOfArray",
-  "listToArray",
-  "indexArray",
-  "bls12_381_G1_multiScalarMul",
-  "bls12_381_G2_multiScalarMul",
-  "insertCoin",
-  "lookupCoin",
-  "unionValue",
-  "valueContains",
-  "valueData",
-  "unValueData",
-  "scaleValue",
-]);
 
 // TypeSpec is ConstantType from types.ts
 type TypeSpec = ConstantType;
@@ -134,6 +30,7 @@ class Parser {
   private interned: Map<string, number>;
   private nextUnique: number;
   private version: Version;
+  private scope: Name[] = [];
 
   constructor(source: string) {
     this.lexer = new Lexer(source);
@@ -171,6 +68,26 @@ class Parser {
     const unique = this.nextUnique++;
     this.interned.set(text, unique);
     return { text, unique };
+  }
+
+  private lookupScope(text: string): Name | undefined {
+    for (let i = this.scope.length - 1; i >= 0; i--) {
+      const n = this.scope[i]!;
+      if (n.text === text) return n;
+    }
+    return undefined;
+  }
+
+  private resolveBareIdent(text: string): NashTerm<Name> {
+    if (isDefaultFunction(text)) {
+      const forces = defaultFunctionForceCount(text);
+      let term: NashTerm<Name> = { tag: "builtin", function: text };
+      for (let i = 0; i < forces; i++) {
+        term = { tag: "force", term };
+      }
+      return term;
+    }
+    return { tag: "var", name: this.internName(text) };
   }
 
   private isBeforeV1_1_0(): boolean {
@@ -221,9 +138,11 @@ class Parser {
 
   private parseTerm(): NashTerm<Name> {
     if (this.is("identifier")) {
-      const name = this.internName(this.current.value);
+      const text = this.current.value;
       this.advance();
-      return { tag: "var", name };
+      const bound = this.lookupScope(text);
+      if (bound !== undefined) return { tag: "var", name: bound };
+      return this.resolveBareIdent(text);
     }
 
     if (this.is("lparen")) {
@@ -266,8 +185,10 @@ class Parser {
     this.expect("lbracket");
 
     const bindings: LetBinding<Name>[] = [];
+    let pushed = 0;
     while (!this.is("rbracket")) {
       if (!this.is("identifier")) {
+        this.scope.length -= pushed;
         throw new ParseError(
           `expected binding name at position ${this.current.position}`,
         );
@@ -276,6 +197,8 @@ class Parser {
       this.advance();
       const value = this.parseTerm();
       bindings.push({ name, value });
+      this.scope.push(name);
+      pushed++;
     }
     this.expect("rbracket");
 
@@ -286,6 +209,8 @@ class Parser {
     }
 
     const body = this.parseTerm();
+    this.scope.length -= pushed;
+
     this.expect("rparen");
 
     return { tag: "let", bindings, body };
@@ -302,7 +227,10 @@ class Parser {
     const name = this.internName(this.current.value);
     this.advance();
 
+    this.scope.push(name);
     const body = this.parseTerm();
+    this.scope.pop();
+
     this.expect("rparen");
 
     return { tag: "lambda", parameter: name, body };
@@ -332,7 +260,7 @@ class Parser {
     }
 
     const name = this.current.value;
-    if (!BUILTIN_FUNCTIONS.has(name)) {
+    if (!isDefaultFunction(name)) {
       throw new ParseError(
         `unknown builtin function ${name} at position ${this.current.position}`,
       );
@@ -341,7 +269,7 @@ class Parser {
     this.advance();
     this.expect("rparen");
 
-    return { tag: "builtin", function: name as DefaultFunction };
+    return { tag: "builtin", function: name };
   }
 
   private parseConstr(): NashTerm<Name> {

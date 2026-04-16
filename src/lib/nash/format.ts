@@ -3,9 +3,34 @@
 //   - `let` formatting with a Clojure-style binding vector
 //   - Flattened left-nested apply chains: `[f a b c]` instead of `[[[f a] b] c]`
 
-import type { Name, PlutusData } from "../plutus/types";
+import type {
+  DefaultFunction,
+  Name,
+  PlutusData,
+  PlutusDataConstr,
+  PlutusDataList,
+  PlutusDataMap,
+} from "../plutus/types";
+import { defaultFunctionForceCount } from "../plutus/types";
 import { prettyPrintNamed, printPlutusData } from "../plutus/pretty";
-import type { NashTerm } from "./types";
+import type {
+  NashCaseTerm,
+  NashConstrTerm,
+  NashDelayTerm,
+  NashForceTerm,
+  NashLambdaTerm,
+  NashTerm,
+} from "./types";
+
+// Parent frames in the measurement walk only ever combine a fixed subset of
+// terms/data, so we narrow the frame types to make each inner switch exhaustive.
+type CombineTerm =
+  | NashLambdaTerm<Name>
+  | NashDelayTerm<Name>
+  | NashForceTerm<Name>
+  | NashConstrTerm<Name>
+  | NashCaseTerm<Name>;
+type CombineData = PlutusDataList | PlutusDataMap | PlutusDataConstr;
 
 export interface FormatOptions {
   readonly maxWidth?: number;
@@ -40,10 +65,26 @@ function collectApplyChain(term: NashTerm<Name>): NashTerm<Name>[] {
   return [cursor, ...args];
 }
 
+/** If `term` is a force chain around a BuiltinTerm with ≥ canonical forces,
+ * return the bare-form render data. Null for under-forced or non-builtin. */
+function analyzeForcedBuiltin(
+  term: NashTerm<Name>,
+): { function: DefaultFunction; extraForces: number } | null {
+  let forces = 0;
+  let cursor: NashTerm<Name> = term;
+  while (cursor.tag === "force") {
+    forces++;
+    cursor = cursor.term;
+  }
+  if (cursor.tag !== "builtin") return null;
+  const need = defaultFunctionForceCount(cursor.function);
+  if (forces < need) return null;
+  return { function: cursor.function, extraForces: forces - need };
+}
+
 // Compact (single-line) printing of a NashTerm<Name>. Used when the node fits
-// within the line width. For UPLC-shared nodes (var, constant, builtin, error)
-// we delegate to prettyPrintNamed via a thin cast since the types are identical
-// for leaf nodes. For apply and let we produce the Nash-specific forms.
+// within the line width. ConstantTerm is shared with UPLC, so we delegate to
+// prettyPrintNamed; apply and let have Nash-specific forms.
 function compactNash(term: NashTerm<Name>): string {
   type Frame =
     | { kind: "term"; term: NashTerm<Name> }
@@ -86,11 +127,19 @@ function compactNash(term: NashTerm<Name>): string {
         stack.push({ kind: "term", term: t.term });
         stack.push({ kind: "str", value: "(delay " });
         break;
-      case "force":
+      case "force": {
+        const a = analyzeForcedBuiltin(t);
+        if (a !== null) {
+          for (let i = 0; i < a.extraForces; i++) parts.push("(force ");
+          parts.push(a.function);
+          for (let i = 0; i < a.extraForces; i++) parts.push(")");
+          break;
+        }
         stack.push({ kind: "str", value: ")" });
         stack.push({ kind: "term", term: t.term });
         stack.push({ kind: "str", value: "(force " });
         break;
+      }
       case "constr": {
         stack.push({ kind: "str", value: ")" });
         for (let i = t.fields.length - 1; i >= 0; i--) {
@@ -111,12 +160,13 @@ function compactNash(term: NashTerm<Name>): string {
         break;
       }
       case "constant":
-        // ConstantTerm is shared with UPLC — prettyPrintNamed works for it
-        parts.push(prettyPrintNamed(t as never));
+        parts.push(prettyPrintNamed(t));
         break;
-      case "builtin":
-        parts.push(`(builtin ${t.function})`);
+      case "builtin": {
+        const a = analyzeForcedBuiltin(t);
+        parts.push(a !== null ? a.function : `(builtin ${t.function})`);
         break;
+      }
       case "error":
         parts.push("(error)");
         break;
@@ -150,7 +200,7 @@ function compactNash(term: NashTerm<Name>): string {
 
 type MeasureFrame =
   | { kind: "visit-term"; term: NashTerm<Name> }
-  | { kind: "combine-term"; term: NashTerm<Name>; arity: number }
+  | { kind: "combine-term"; term: CombineTerm; arity: number }
   | { kind: "combine-term-data-constant"; term: NashTerm<Name> }
   | { kind: "combine-apply-chain"; outerTerm: NashTerm<Name>; chainLen: number }
   | {
@@ -159,7 +209,7 @@ type MeasureFrame =
       names: readonly string[];
     }
   | { kind: "visit-data"; data: PlutusData }
-  | { kind: "combine-data"; data: PlutusData; arity: number };
+  | { kind: "combine-data"; data: CombineData; arity: number };
 
 interface Widths {
   termWidths: Map<NashTerm<Name>, number>;
@@ -186,7 +236,8 @@ function measureWidths(root: NashTerm<Name>): Widths {
             break;
           }
           case "builtin": {
-            const w = 10 + t.function.length; // "(builtin NAME)"
+            const a = analyzeForcedBuiltin(t);
+            const w = a !== null ? t.function.length : 10 + t.function.length;
             termWidths.set(t, w);
             widthStack.push(w);
             break;
@@ -201,9 +252,7 @@ function measureWidths(root: NashTerm<Name>): Widths {
               stack.push({ kind: "combine-term-data-constant", term: t });
               stack.push({ kind: "visit-data", data: t.value.value });
             } else {
-              const w = (prettyPrintNamed as (t: never) => string)(
-                t as never,
-              ).length;
+              const w = prettyPrintNamed(t).length;
               termWidths.set(t, w);
               widthStack.push(w);
             }
@@ -228,10 +277,22 @@ function measureWidths(root: NashTerm<Name>): Widths {
             break;
           }
           case "delay":
-          case "force":
             stack.push({ kind: "combine-term", term: t, arity: 1 });
             stack.push({ kind: "visit-term", term: t.term });
             break;
+          case "force": {
+            const a = analyzeForcedBuiltin(t);
+            if (a !== null) {
+              // "(force " (7) + inner + ")" (1), per extraForces wrapper
+              const w = 8 * a.extraForces + a.function.length;
+              termWidths.set(t, w);
+              widthStack.push(w);
+              break;
+            }
+            stack.push({ kind: "combine-term", term: t, arity: 1 });
+            stack.push({ kind: "visit-term", term: t.term });
+            break;
+          }
           case "constr":
             stack.push({
               kind: "combine-term",
@@ -294,8 +355,6 @@ function measureWidths(root: NashTerm<Name>): Widths {
             w = 7 + cW + kB + sumB;
             break;
           }
-          default:
-            throw new Error(`format: unexpected combine-term for tag ${t.tag}`);
         }
         termWidths.set(t, w);
         widthStack.push(w);
@@ -424,8 +483,6 @@ function measureWidths(root: NashTerm<Name>): Widths {
             w = k === 0 ? 10 + digits : 10 + digits + sum + 2 * (k - 1);
             break;
           }
-          default:
-            throw new Error(`format: unexpected combine-data for tag ${d.tag}`);
         }
         dataWidths.set(d, w);
         widthStack.push(w);
@@ -512,6 +569,14 @@ function emitTerm(
     return;
   }
 
+  // Sugar-aware: force-chains around builtins collapse to `(force^k name)`
+  // and can't be broken further — emit compact regardless of width.
+  const forcedBuiltin = analyzeForcedBuiltin(term);
+  if (forcedBuiltin !== null) {
+    parts.push(compactNash(term));
+    return;
+  }
+
   switch (term.tag) {
     case "var":
       parts.push(term.name.text);
@@ -536,7 +601,7 @@ function emitTerm(
         stack.push({ kind: "newline", indent: dataLineIndent });
         stack.push({ kind: "str", value: "(con data" });
       } else {
-        parts.push((prettyPrintNamed as (t: never) => string)(term as never));
+        parts.push(prettyPrintNamed(term));
       }
       break;
     }

@@ -12,6 +12,7 @@ import {
   type StreamParser,
 } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
+import { isDefaultFunction } from "../../plutus/types";
 
 const KEYWORDS = new Set([
   "lam",
@@ -183,6 +184,7 @@ const parser: StreamParser<State> = {
       if (KEYWORDS.has(ident)) return "keyword";
       if (BOOLS.has(ident)) return "bool";
       if (TYPES.has(ident)) return "typeName";
+      if (isDefaultFunction(ident)) return "builtinName";
       return "variableName";
     }
 
@@ -210,6 +212,7 @@ const tokenTable = {
   bool: t.bool,
   typeName: t.typeName,
   variableName: t.variableName,
+  builtinName: t.function(t.variableName),
 };
 
 export const nashLanguage = StreamLanguage.define({
@@ -224,6 +227,11 @@ export const nashHighlightStyle = HighlightStyle.define([
   { tag: t.number, color: "var(--chart-4)" },
   { tag: t.literal, color: "var(--chart-4)" },
   { tag: t.string, color: "var(--chart-3)" },
+  {
+    tag: t.function(t.variableName),
+    color: "var(--chart-5)",
+    fontWeight: "500",
+  },
   { tag: t.variableName, color: "var(--foreground)" },
   { tag: t.lineComment, color: "var(--muted-foreground)", fontStyle: "italic" },
   { tag: t.special(t.bracket), color: "var(--primary)", fontWeight: "600" },

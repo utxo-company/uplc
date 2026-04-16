@@ -638,3 +638,10 @@ export function defaultFunctionArity(fn: DefaultFunction): number {
 export function defaultFunctionForceCount(fn: DefaultFunction): number {
   return DEFAULT_FUNCTION_FORCE_COUNTS[fn];
 }
+
+export function isDefaultFunction(name: string): name is DefaultFunction {
+  return Object.prototype.hasOwnProperty.call(
+    DEFAULT_FUNCTION_FORCE_COUNTS,
+    name,
+  );
+}
