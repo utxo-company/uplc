@@ -133,11 +133,11 @@ function compactNash(term: NashTerm<Name>): string {
           for (let i = 0; i < a.extraForces; i++) parts.push("(force ");
           parts.push(a.function);
           for (let i = 0; i < a.extraForces; i++) parts.push(")");
-          break;
+        } else {
+          stack.push({ kind: "str", value: ")" });
+          stack.push({ kind: "term", term: t.term });
+          stack.push({ kind: "str", value: "(force " });
         }
-        stack.push({ kind: "str", value: ")" });
-        stack.push({ kind: "term", term: t.term });
-        stack.push({ kind: "str", value: "(force " });
         break;
       }
       case "constr": {
@@ -287,10 +287,10 @@ function measureWidths(root: NashTerm<Name>): Widths {
               const w = 8 * a.extraForces + a.function.length;
               termWidths.set(t, w);
               widthStack.push(w);
-              break;
+            } else {
+              stack.push({ kind: "combine-term", term: t, arity: 1 });
+              stack.push({ kind: "visit-term", term: t.term });
             }
-            stack.push({ kind: "combine-term", term: t, arity: 1 });
-            stack.push({ kind: "visit-term", term: t.term });
             break;
           }
           case "constr":

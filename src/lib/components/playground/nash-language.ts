@@ -93,8 +93,9 @@ const parser: StreamParser<State> = {
     if (ch === null || ch === undefined) return null;
 
     // Brackets — push on open, pop on close, same shape as paren matching.
-    // A `[` that immediately follows `let` opens the binding vector; any other
-    // `[` is the head of an apply chain.
+    // A `[` that immediately follows `let` opens the binding vector; any
+    // other `[` is a generic bracket (apply chain head, `(con list/array …)`
+    // value literal, etc.), all of which render identically.
     if (ch === "[") {
       stream.next();
       const kind: BracketKind = state.expectingBindingVector

@@ -69,3 +69,71 @@ describe("formatNash", () => {
     expect(formatted).toBe("(let [x (con integer 42)] x)");
   });
 });
+
+describe("formatNash bare builtin sugar", () => {
+  it("sugars canonical 0-force builtin in apply head", () => {
+    const nash = nashFromUplc(
+      "(program 1.0.0 [(builtin addInteger) x (con integer 1)])",
+    );
+    expect(formatNash(nash, { maxWidth: 80 })).toBe(
+      "[addInteger x (con integer 1)]",
+    );
+  });
+
+  it("sugars canonical 1-force builtin ifThenElse in apply head", () => {
+    const nash = nashFromUplc(
+      "(program 1.0.0 [(force (builtin ifThenElse)) c t f])",
+    );
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("[ifThenElse c t f]");
+  });
+
+  it("sugars canonical 2-force builtin fstPair in apply head", () => {
+    const nash = nashFromUplc(
+      "(program 1.0.0 [(force (force (builtin fstPair))) p])",
+    );
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("[fstPair p]");
+  });
+
+  it("sugars standalone 0-force builtin", () => {
+    const nash = nashFromUplc("(program 1.0.0 (builtin addInteger))");
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("addInteger");
+  });
+
+  it("sugars standalone 1-force builtin", () => {
+    const nash = nashFromUplc("(program 1.0.0 (force (builtin ifThenElse)))");
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("ifThenElse");
+  });
+
+  it("over-forced 0-force builtin: bare name with extra (force …) wrapper", () => {
+    const nash = nashFromUplc("(program 1.0.0 (force (builtin addInteger)))");
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("(force addInteger)");
+  });
+
+  it("under-forced 1-force builtin stays in explicit (builtin F) form", () => {
+    const nash = nashFromUplc("(program 1.0.0 (builtin ifThenElse))");
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("(builtin ifThenElse)");
+  });
+
+  it("under-forced 2-force builtin with 1 force stays fully explicit", () => {
+    const nash = nashFromUplc("(program 1.0.0 (force (builtin chooseList)))");
+    expect(formatNash(nash, { maxWidth: 80 })).toBe(
+      "(force (builtin chooseList))",
+    );
+  });
+
+  it("breaks sugared apply head across lines when narrow", () => {
+    const nash = nashFromUplc(
+      "(program 1.0.0 [(builtin addInteger) (con integer 111111) (con integer 222222)])",
+    );
+    expect(formatNash(nash, { maxWidth: 30 })).toBe(
+      ["[addInteger", "  (con integer 111111)", "  (con integer 222222)]"].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("sugars partial application of a builtin", () => {
+    const nash = nashFromUplc("(program 1.0.0 [(builtin addInteger) x])");
+    expect(formatNash(nash, { maxWidth: 80 })).toBe("[addInteger x]");
+  });
+});
