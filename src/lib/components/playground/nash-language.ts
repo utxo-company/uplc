@@ -13,6 +13,7 @@ import {
 } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { isDefaultFunction } from "../../plutus/types";
+import { nashCompletion } from "./nash-completion";
 
 const KEYWORDS = new Set([
   "lam",
@@ -245,5 +246,6 @@ export const nashHighlightStyle = HighlightStyle.define([
 export function nash(): LanguageSupport {
   return new LanguageSupport(nashLanguage, [
     syntaxHighlighting(nashHighlightStyle),
+    nashCompletion(),
   ]);
 }
