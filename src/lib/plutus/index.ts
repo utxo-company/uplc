@@ -47,6 +47,9 @@ export {
   typeOfConstant,
   constantTypeEquals,
   I64_MAX,
+  defaultFunctionArity,
+  defaultFunctionForceCount,
+  isDefaultFunction,
 } from "./types";
 
 export { parse, ParseError } from "./parse";
